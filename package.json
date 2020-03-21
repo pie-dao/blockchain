@@ -1,0 +1,25 @@
+{
+  "name": "@pie-dao/blockchain",
+  "version": "1.0.0",
+  "description": "An extension for PieDAO's eth wrapper. Tracks and locally caches transactions.",
+  "main": "src/index.js",
+  "repository": "https://github.com/pie-dao/blockchain.git",
+  "author": "Dan Matthews <dan@cryptobuilders.io>",
+  "license": "MIT",
+  "scripts": {
+    "lint": "npx eslint src/*.js src/**/*.js",
+    "prerelease": "yarn lint",
+    "release": "npm publish --access=public"
+  },
+  "dependencies": {
+    "bignumber.js": "^9.0.0",
+    "bnc-sdk": "^1.1.0",
+    "ethers": "^4.0.45",
+    "pouchdb": "^7.2.1"
+  },
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.1.0",
+    "eslint-plugin-import": "^2.20.1"
+  }
+}
