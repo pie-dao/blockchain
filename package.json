@@ -12,10 +12,15 @@
     "release": "npm publish --access=public"
   },
   "dependencies": {
+    "@pie-dao/abis": "file:../abis",
+    "@pie-dao/utils": "file:../utils",
     "bignumber.js": "^9.0.0",
     "bnc-sdk": "^1.1.0",
-    "ethers": "^4.0.45",
-    "pouchdb": "^7.2.1"
+    "ethers": "^4.0.46",
+    "is-plain-object": "^3.0.0",
+    "pouchdb": "^7.2.1",
+    "pubsub-js": "^1.8.0",
+    "regenerator-runtime": "^0.13.5"
   },
   "devDependencies": {
     "eslint": "^6.8.0",

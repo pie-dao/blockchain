@@ -1,7 +1,8 @@
-import { defaultNetwork } from './config';
-import { isAddress, shortenAddress, validateAddress } from './utils/address';
+import 'regenerator-runtime/runtime';
 
+import Database from './database';
+
+import { defaultNetwork } from './config';
+
+export const BlockchainDatabase = Database;
 export const config = { defaultNetwork };
-export const utils = {
-  address: { isAddress, shortenAddress, validateAddress },
-};

@@ -1,10 +1,12 @@
+/* eslint class-methods-use-this: 0 */
+
 import blocknativeSdk from 'bnc-sdk';
 
 import {
   validateIsFunction,
   validateIsString,
   validateIsSupportedNetworkId,
-} from '../utils/validations';
+} from '@pie-dao/utils';
 
 // TODO: Update this to our documentation
 const docs = 'https://docs.blocknative.com/notify-sdk#quickstart';
@@ -21,10 +23,11 @@ const handlers = [];
 class BlocknativeAdapter {
   constructor() {
     this.debug = false;
+    this.debugHandler = this.debugHandler.bind(this);
   }
 
   get transactionHandlers() {
-    return handlers + [this.debugHandler];
+    return handlers.concat([this.debugHandler]);
   }
 
   addHandler(func) {
@@ -46,6 +49,17 @@ class BlocknativeAdapter {
     }
   }
 
+  address(address, callback) {
+    if (!internal.connected) {
+      throw new Error('Call start');
+    }
+
+    const { sdk } = internal;
+    const { clientIndex } = sdk;
+    const { emitter } = sdk.account(clientIndex, address);
+    emitter.on('all', callback);
+  }
+
   debugHandler(evt) {
     if (this.debug) {
       console.info(logPrefix('debugHandler'), 'blockchain event received', evt);
@@ -61,7 +75,6 @@ class BlocknativeAdapter {
     });
     validateIsSupportedNetworkId(networkId, { prefix });
 
-    this.stop();
     this.dappId = dappId;
     this.debug = debug;
     this.networkId = networkId;
@@ -79,6 +92,17 @@ class BlocknativeAdapter {
 
     internal.sdk = blocknativeSdk({ dappId, networkId, transactionHandlers });
     internal.connected = true;
+  }
+
+  transaction(hash, callback) {
+    if (!internal.connected) {
+      throw new Error('Call start');
+    }
+
+    const { sdk } = internal;
+    const { clientIndex } = sdk;
+    const { emitter } = sdk.transaction(clientIndex, hash);
+    emitter.on('all', callback);
   }
 }
 

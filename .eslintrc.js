@@ -15,6 +15,9 @@ module.exports = {
     sourceType: 'module',
   },
   rules: {
+    'import/prefer-default-export': 0,
+    'new-cap': 0,
     'no-console': 0,
+    'no-underscore-dangle': 0,
   },
 };
