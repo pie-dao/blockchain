@@ -51,7 +51,7 @@ class BlocknativeAdapter {
 
   address(address, callback) {
     if (!internal.connected) {
-      throw new Error('Call start');
+      this.start();
     }
 
     const { sdk } = internal;
@@ -96,7 +96,7 @@ class BlocknativeAdapter {
 
   transaction(hash, callback) {
     if (!internal.connected) {
-      throw new Error('Call start');
+      this.start();
     }
 
     const { sdk } = internal;

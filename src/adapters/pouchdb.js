@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import PouchDB from 'pouchdb';
+import PubSub from 'pubsub-js';
 
 import {
   isArray,
@@ -110,19 +111,19 @@ class PouchDBAdapter {
     this._db = new PouchDB('@piedao/blockchain');
   }
 
-  async fetch(uuid, revOnly = false) {
+  async fetch(uuid) {
+    const prefix = logPrefix('fetch');
+
     try {
-      const doc = await this._db.get(uuid);
-      if (revOnly) {
-        return doc._rev;
-      }
+      validateIsString(uuid, { prefix, message: `Expected uuid to be a string. Got: ${uuid}` });
+      const doc = await this._db.get(uuid.toLowerCase());
       return doc;
     } catch (e) {
       if (e.message === 'missing') {
-        return revOnly ? undefined : { _docId: uuid, data: { uuid } };
+        return { _id: uuid.toLowerCase(), data: { uuid } };
       }
 
-      console.error(logPrefix('fetch'), e);
+      console.error(prefix, e);
 
       return {
         uuid,
@@ -132,11 +133,14 @@ class PouchDBAdapter {
   }
 
   async get(uuid) {
+    const prefix = logPrefix('get');
+
     try {
-      const { data } = await this.fetch(uuid);
+      validateIsString(uuid, { prefix, message: `Expected uuid to be a string. Got: ${uuid}` });
+      const { data } = await this.fetch(uuid.toLowerCase());
       return deserialize(data);
     } catch (e) {
-      console.error(logPrefix('get'), e);
+      console.error(prefix, e);
 
       return {
         uuid,
@@ -150,25 +154,28 @@ class PouchDBAdapter {
     const { uuid } = data;
 
     if (!validateIsString(uuid, {
-      message: 'Objects being saved must have a uuid.',
+      message: `Objects being saved must have a uuid. Got: ${JSON.stringify(data)}`,
       prefix: logPrefix('put'),
       throwError: false,
     })) {
       return false;
     }
 
+    const id = uuid.toLowerCase();
+
     try {
       const payload = {
-        _id: uuid,
+        _id: id,
         data: serialize(data),
       };
 
-      const rev = await this.fetch(uuid, true);
+      const rev = (await this.fetch(id))._rev;
       if (rev) {
         payload._rev = rev;
       }
 
       await this._db.put(payload);
+      PubSub.publish(uuid, data);
 
       return true;
     } catch (e) {

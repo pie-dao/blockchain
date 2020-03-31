@@ -1,4 +1,7 @@
-import { chain } from '@pie-dao/utils';
+import BigNumber from 'bignumber.js';
+
+import { chain, nullAddress } from '@pie-dao/utils';
+import { ethers } from 'ethers';
 
 import pouchdb from '../adapters/pouchdb';
 
@@ -51,7 +54,7 @@ export const fetchContracts = (address, provider) => new Promise((resolve, rejec
       }
     });
 
-    resolve(await erc20s(addresses.values(), provider));
+    resolve(await erc20s(Array.from(addresses), provider));
     callback();
   };
 
@@ -66,9 +69,19 @@ export const fetchContracts = (address, provider) => new Promise((resolve, rejec
 export const fetchBalances = async (walletAddress, provider) => {
   const contracts = await fetchContracts(walletAddress, provider);
 
-  return Promise.allSettled(contracts.map(({ address, contract }) => (
+  const ethBalanceRaw = await provider.getBalance(walletAddress);
+  const ethBalance = BigNumber(ethers.utils.formatEther(ethBalanceRaw));
+
+  pouchdb.put({ ethBalance, uuid: `${walletAddress}.${nullAddress}.balance` });
+
+  const results = await Promise.allSettled(contracts.map(({ address, contract, decimals }) => (
     contract.balanceOf(walletAddress).then((balance) => (
-      pouchdb.put({ balance, uuid: `${walletAddress}.${address}.balance` })
+      pouchdb.put({
+        balance: BigNumber(balance.toString()).dividedBy(10 ** decimals),
+        uuid: `${walletAddress}.${address}.balance`,
+      })
     ))
   )));
+
+  return results;
 };

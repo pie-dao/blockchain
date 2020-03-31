@@ -13,8 +13,12 @@ const logPrefix = (functionName) => `@pie-dao/blockchain - fetchers/erc20 - ${fu
 const addNaT = (address) => {
   const func = async (callback) => {
     const NaTs = await pouchdb.get('NaT');
+    if (NaTs.addresses && NaTs.addresses.has(address)) {
+      callback();
+      return;
+    }
     NaTs.addresses = (NaTs.addresses || new Set()).add(address);
-    await pouchdb.set('NaT', NaTs);
+    await pouchdb.put(NaTs);
     callback();
   };
 
@@ -68,14 +72,14 @@ const fetchErc20 = (address, provider) => new Promise(async (resolve, reject) =>
       ] = await Promise.all([
         contract.decimals(),
         contract.name(),
-        trimSymbol(contract.symbol()),
+        contract.symbol(),
       ]);
 
       const data = {
         address,
         decimals,
         name,
-        symbol,
+        symbol: trimSymbol(symbol),
       };
 
       await pouchdb.put({ ...data, ...token });
@@ -106,9 +110,27 @@ export const erc20s = async (addresses, provider) => {
   const prefix = logPrefix('erc20s');
   validateIsArray(addresses, { prefix, message: '\'addresses\' argument must be an array' });
 
+  const checks = await Promise.all(addresses.map(async (address) => ({
+    address,
+    result: await isNaT(address),
+  })));
+
+  const toQuery = checks.filter(({ result }) => !result).map(({ address }) => address);
+
   const results = await Promise.allSettled(
-    addresses.map((address) => fetchErc20(address, provider)),
+    toQuery.map((address) => fetchErc20(address, provider)),
   );
 
-  return results.filter(({ status }) => status === 'resolved').map(({ value }) => value);
+  const tokens = results.filter(({ status }) => status === 'fulfilled').map(({ value }) => value);
+  const rejects = new Set(addresses);
+
+  tokens.forEach(({ address }) => {
+    rejects.delete(address);
+  });
+
+  Array.from(rejects).forEach((address) => {
+    addNaT(address);
+  });
+
+  return tokens;
 };
