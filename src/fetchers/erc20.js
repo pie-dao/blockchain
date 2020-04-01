@@ -40,7 +40,10 @@ const fetchErc20 = (address, provider) => new Promise(async (resolve, reject) =>
   const prefix = logPrefix('fetchErc20');
   const NaTError = new TypeError(`${prefix}: Address ${address} is not a contract address.`);
 
-  validateIsAddress(address, { prefix, message: 'address requested is not an Ethereum address.' });
+  validateIsAddress(address, {
+    prefix,
+    message: `address requested (${address}) is not an Ethereum address.`,
+  });
 
   try {
     if (await isNaT(address)) {
@@ -102,7 +105,10 @@ const fetchErc20 = (address, provider) => new Promise(async (resolve, reject) =>
 
 export const erc20 = async (address, provider) => {
   const prefix = logPrefix('erc20');
-  validateIsAddress(address, { prefix, message: 'address requested is not an Ethereum address.' });
+  validateIsAddress(address, {
+    prefix,
+    message: `address requested (${address}) is not an Ethereum address.`,
+  });
   return fetchErc20(address, provider);
 };
 

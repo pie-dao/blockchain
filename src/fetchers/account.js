@@ -74,14 +74,26 @@ export const fetchBalances = async (walletAddress, provider) => {
 
   pouchdb.put({ ethBalance, uuid: `${walletAddress}.${nullAddress}.balance` });
 
-  const results = await Promise.allSettled(contracts.map(({ address, contract, decimals }) => (
-    contract.balanceOf(walletAddress).then((balance) => (
-      pouchdb.put({
-        balance: BigNumber(balance.toString()).dividedBy(10 ** decimals),
-        uuid: `${walletAddress}.${address}.balance`,
-      })
-    ))
-  )));
+  const results = await Promise.allSettled(
+    contracts.map(
+      ({
+        address,
+        contract,
+        decimals,
+        symbol,
+      }) => {
+        const formatBalance = (balance) => {
+          console.log('BALANCE', symbol, walletAddress, address, balance.toString());
+          return pouchdb.put({
+            balance: BigNumber(balance.toString()).dividedBy(10 ** decimals),
+            uuid: `${walletAddress}.${address}.balance`,
+          });
+        };
+
+        return contract.balanceOf(walletAddress).then(formatBalance);
+      },
+    ),
+  );
 
   return results;
 };

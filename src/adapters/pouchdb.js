@@ -175,7 +175,7 @@ class PouchDBAdapter {
       }
 
       await this._db.put(payload);
-      PubSub.publish(uuid, data);
+      PubSub.publish(id, data);
 
       return true;
     } catch (e) {

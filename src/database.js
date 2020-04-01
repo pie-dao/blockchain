@@ -4,6 +4,7 @@ import PubSub from 'pubsub-js';
 
 import {
   chain,
+  isBigNumber,
   nullAddress,
   validateIsFunction,
   validateIsString,
@@ -16,7 +17,8 @@ import pouchdb from './adapters/pouchdb';
 
 import { defaultNetwork, defaultNetworkId } from './config';
 import { erc20 } from './fetchers/erc20';
-import { fetchAccount, fetchBalances } from './fetchers/account';
+// import { fetchAccount, fetchBalances } from './fetchers/account';
+import { fetchAccount } from './fetchers/account';
 
 const logPrefix = (functionName) => `@pie-dao/blockchain - Database#${functionName}`;
 
@@ -84,38 +86,54 @@ class Database {
     this.transactionUpdate = this.transactionUpdate.bind(this);
   }
 
+  refreshBalances(address) {
+    pouchdb.get(`${address}.balances`).then((balances) => {
+      Array.from(balances.tokens || new Set()).forEach((token) => {
+        this.balance({ address, token });
+      });
+    });
+  }
+
   async balance({ address, token = nullAddress }) {
-    const { balance } = await pouchdb.get(`${address}.${token}.balance`);
-    let bal = balance;
+    const uuid = `${address}.${token}.balance`.toLowerCase();
+    let { balance } = await pouchdb.get(uuid);
 
-    if (!bal) {
-      if (token === nullAddress) {
-        const ethBalanceRaw = await this.provider.getBalance(address);
-        bal = BigNumber(ethers.utils.formatEther(ethBalanceRaw));
-      } else {
-        const { contract, decimals } = await erc20(token);
-        bal = BigNumber((await contract.balanceOf(address)).dividedBy(10 ** decimals).toString());
-      }
+    if (isBigNumber(balance)) {
+      PubSub.publish(uuid, { balance });
     }
 
-    if (!internal.tracking.has(address)) {
-      this.track({ address });
+    if (token === nullAddress) {
+      const rawBalance = await this.provider.getBalance(address);
+      balance = BigNumber(ethers.utils.formatEther(rawBalance));
+    } else {
+      const { contract, decimals } = await erc20(token, this.provider);
+      const rawBalance = await contract.balanceOf(address);
+      balance = BigNumber(rawBalance.toString()).dividedBy(10 ** decimals);
     }
 
-    return bal;
+    await pouchdb.put({ balance, uuid });
+
+    // TODO: this less hacky
+    setTimeout(async () => {
+      const balances = await pouchdb.get(`${address}.balances`);
+      balances.tokens = (balances.tokens || new Set()).add(token);
+      pouchdb.put(balances);
+    }, Math.floor(Math.random() * Math.floor(50) * 500));
+
+    return balance;
   }
 
   subscribe(uuid, subscriber) {
     const prefix = logPrefix('subscribe');
     validateIsString(uuid, { prefix, message: 'Invalid database uuid format. Must be a string.' });
     validateIsFunction(subscriber, { prefix, message: 'Subscriber is not a function.' });
-    PubSub.subscribe(uuid, subscriber);
+    return PubSub.subscribe(uuid.toLowerCase(), subscriber);
   }
 
   async track({ address, transactionHash }) {
     if (address && !internal.tracking.has(address)) {
       await trackAddress(this, address);
-      await fetchBalances(address, this.provider);
+      // await fetchBalances(address, this.provider);
       try {
         blocknative.address(address, this.transactionUpdate);
         internal.tracking.add(address);
@@ -159,19 +177,12 @@ class Database {
     });
 
     // TODO: wait for the current provider to know that the transaction is settled
-    if (internal.tracking.has(from)) {
-      fetchBalances(from, this.provider);
-    }
-
-    if (internal.tracking.has(to)) {
-      fetchBalances(to, this.provider);
-    }
+    this.refreshBalances(from);
+    this.refreshBalances(to);
   }
 
-  unsubscribe(subscriber) {
-    const prefix = logPrefix('unsubscribe');
-    validateIsFunction(subscriber, { prefix, message: 'Subscriber is not a function.' });
-    PubSub.unsubscribe(subscriber);
+  unsubscribe(subscription) {
+    PubSub.unsubscribe(subscription);
   }
 }
 
