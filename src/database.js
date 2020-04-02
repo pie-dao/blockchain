@@ -95,14 +95,14 @@ class Database {
   }
 
   refreshBalances(address) {
-    pouchdb.get(`${address}.balances`).then((balances) => {
-      Array.from(balances.tokens || new Set()).forEach((token) => {
-        this.balance({ address, token });
-      });
-    });
+    pouchdb.get(`${address}.balances`).then((balances) => Promise.all(
+      Array.from(balances.tokens || new Set()).map(
+        (token) => this.balance({ address, token, bulk: true }),
+      ),
+    )).then((docs) => pouchdb.bulk(docs));
   }
 
-  async balance({ address, token = nullAddress }) {
+  async balance({ address, bulk = false, token = nullAddress }) {
     const uuid = `${address}.${token}.balance`.toLowerCase();
     let { balance } = await pouchdb.get(uuid);
 
@@ -119,16 +119,36 @@ class Database {
       balance = BigNumber(rawBalance.toString()).dividedBy(10 ** decimals);
     }
 
-    await pouchdb.put({ balance, uuid });
+    const doc = { balance, uuid };
 
-    // TODO: this less hacky
+    if (bulk) {
+      return doc;
+    }
+
+    await pouchdb.put(doc);
+
     setTimeout(async () => {
       const balances = await pouchdb.get(`${address}.balances`);
-      balances.tokens = (balances.tokens || new Set()).add(token);
-      pouchdb.put(balances);
-    }, Math.floor(Math.random() * Math.floor(15) * 100));
+      const tokens = (balances.tokens || new Set());
+
+      if (!tokens.has(token)) {
+        tokens.add(token);
+        balances.tokens = tokens;
+        pouchdb.put(balances);
+      }
+    }, Math.floor(Math.random() * Math.floor(20) * 100));
 
     return balance;
+  }
+
+  async contract(address) {
+    let contract = await pouchdb.get(address);
+
+    if (!contract.symbol) {
+      contract = await erc20(address, this.provider);
+    }
+
+    return contract;
   }
 
   subscribe(uuid, subscriber) {

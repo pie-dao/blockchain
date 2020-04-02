@@ -120,9 +120,9 @@ class PouchDBAdapter {
 
     const results = await this._db.bulkDocs(payload);
 
-    results.forEach(({ id }) => {
+    results.forEach(async ({ id }) => {
       if (id) {
-        PubSub.publish(id);
+        PubSub.publish(id, (await this.get(id)));
       }
     });
   }

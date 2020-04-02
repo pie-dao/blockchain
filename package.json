@@ -12,8 +12,8 @@
     "release": "npm publish --access=public"
   },
   "dependencies": {
-    "@pie-dao/abis": "file:../abis",
-    "@pie-dao/utils": "file:../utils",
+    "@pie-dao/abis": "^1.0.0",
+    "@pie-dao/utils": "^1.0.0",
     "bignumber.js": "^9.0.0",
     "bnc-sdk": "^1.1.0",
     "ethers": "^4.0.46",
