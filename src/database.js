@@ -26,6 +26,8 @@ window.pouchdb = pouchdb;
 
 const internal = {
   tracking: new Set(),
+  waiting: {},
+  waitingPid: {},
 };
 
 const trackAddress = (db, address) => new Promise((resolve, reject) => {
@@ -38,7 +40,13 @@ const trackAddress = (db, address) => new Promise((resolve, reject) => {
 
     const transactions = await db.etherscan.getHistory(address, lastBlock);
 
-    await Promise.all(transactions.map((transaction) => db.transactionUpdate(transaction)));
+    const docs = await Promise.all(
+      transactions.map(
+        (transaction) => db.transactionUpdate(transaction, true),
+      ),
+    );
+
+    await pouchdb.bulk(docs);
 
     for (i = 0; i < transactions.length; i += 1) {
       const { blockNumber, hash } = transactions[i];
@@ -118,7 +126,7 @@ class Database {
       const balances = await pouchdb.get(`${address}.balances`);
       balances.tokens = (balances.tokens || new Set()).add(token);
       pouchdb.put(balances);
-    }, Math.floor(Math.random() * Math.floor(50) * 500));
+    }, Math.floor(Math.random() * Math.floor(15) * 100));
 
     return balance;
   }
@@ -156,7 +164,7 @@ class Database {
     return true;
   }
 
-  transactionUpdate(update) {
+  async transactionUpdate(update, bulk = false) {
     const {
       creates,
       data,
@@ -166,7 +174,7 @@ class Database {
       value,
     } = update;
 
-    pouchdb.put({
+    const doc = {
       creates,
       data,
       from,
@@ -174,11 +182,55 @@ class Database {
       to,
       value: BigNumber(value.toString()),
       uuid: hash,
+    };
+
+    if (bulk === true) {
+      return doc;
+    }
+
+    setTimeout(async () => {
+      const wait = this.waitForTransaction(hash);
+
+      if (wait.status === 'waiting') {
+        await wait.promise;
+        this.refreshBalances(from);
+        this.refreshBalances(to);
+      }
+    }, 0);
+
+    await pouchdb.put(doc);
+
+    return doc;
+  }
+
+  waitForTransaction(hash, timeoutIn = 300000) {
+    const prefix = logPrefix('waitForTransaction');
+    validateIsTransactionHash(hash, {
+      prefix,
+      message: `'${hash}' is not a valid transaction hash`,
     });
 
-    // TODO: wait for the current provider to know that the transaction is settled
-    this.refreshBalances(from);
-    this.refreshBalances(to);
+    if (internal.waiting[hash]) {
+      return { promise: internal.waiting[hash], status: 'alreadyInProgress' };
+    }
+
+    internal.waitingPid[hash] = setTimeout(() => {
+      delete internal.waiting[hash];
+      delete internal.waitingPid[hash];
+    }, timeoutIn);
+
+    const promise = new Promise((resolve) => {
+      this.provider.on(hash, () => {
+        clearTimeout(internal.waitingPid[hash]);
+        delete internal.waiting[hash];
+        delete internal.waitingPid[hash];
+        resolve();
+      });
+    });
+
+    internal.waiting[hash] = promise;
+
+    return { promise, status: 'waiting' };
   }
 
   unsubscribe(subscription) {

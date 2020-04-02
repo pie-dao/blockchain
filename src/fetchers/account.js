@@ -66,6 +66,7 @@ export const fetchContracts = (address, provider) => new Promise((resolve, rejec
   );
 });
 
+// TODO: update this to use pouchdb.bulk and reinstitute it
 export const fetchBalances = async (walletAddress, provider) => {
   const contracts = await fetchContracts(walletAddress, provider);
 

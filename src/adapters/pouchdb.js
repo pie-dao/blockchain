@@ -111,6 +111,22 @@ class PouchDBAdapter {
     this._db = new PouchDB('@piedao/blockchain');
   }
 
+  async bulk(docs) {
+    const payload = await Promise.all(docs.map((doc) => (
+      this.fetch(doc.uuid).then(
+        (current) => ({ ...current, data: serialize(doc) }),
+      )
+    )));
+
+    const results = await this._db.bulkDocs(payload);
+
+    results.forEach(({ id }) => {
+      if (id) {
+        PubSub.publish(id);
+      }
+    });
+  }
+
   async fetch(uuid) {
     const prefix = logPrefix('fetch');
 
