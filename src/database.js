@@ -141,11 +141,11 @@ class Database {
     return balance;
   }
 
-  async contract(address) {
+  async contract(address, provider) {
     let contract = await pouchdb.get(address);
 
     if (!contract.symbol) {
-      contract = await erc20(address, this.provider);
+      contract = await erc20(address, provider || this.provider);
     }
 
     return contract;
