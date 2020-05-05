@@ -1,3 +1,5 @@
+/* eslint no-new-func: 0 */
+
 import BigNumber from 'bignumber.js';
 import PouchDB from 'pouchdb';
 import PubSub from 'pubsub-js';
@@ -106,9 +108,15 @@ const serialize = (data, path = '') => {
   );
 };
 
+const isBrowser = new Function('try { return this === window; } catch (e) { return false; }');
+
 class PouchDBAdapter {
   constructor() {
-    this._db = new PouchDB('@piedao/blockchain');
+    if (isBrowser()) {
+      this._db = new PouchDB('@piedao/blockchain');
+    } else {
+      this._db = new PouchDB(`${__dirname}/${process.env.POUCH_DB_PATH || 'database.json'}`);
+    }
   }
 
   async bulk(docs) {
@@ -188,6 +196,8 @@ class PouchDBAdapter {
       const rev = (await this.fetch(id))._rev;
       if (rev) {
         payload._rev = rev;
+      } else {
+        PubSub.publish('blockchain.newrecord', data);
       }
 
       await this._db.put(payload);

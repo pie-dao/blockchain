@@ -22,8 +22,6 @@ import { fetchAccount } from './fetchers/account';
 
 const logPrefix = (functionName) => `@pie-dao/blockchain - Database#${functionName}`;
 
-window.pouchdb = pouchdb;
-
 const internal = {
   tracking: new Set(),
   waiting: {},
@@ -80,10 +78,12 @@ class Database {
     debug = false,
     network = defaultNetwork,
     networkId = defaultNetworkId,
+    ws,
   }) {
     blocknative.initialize({
       debug,
       networkId,
+      ws,
       dappId: blocknativeDappId,
     });
 
@@ -194,15 +194,20 @@ class Database {
       value,
     } = update;
 
+    const lastUpdate = Date.now();
+
     const doc = {
       creates,
       data,
       from,
       hash,
+      lastUpdate,
       to,
       value: BigNumber(value.toString()),
       uuid: hash,
     };
+
+    doc[`raw@${lastUpdate}`] = update;
 
     if (bulk === true) {
       return doc;

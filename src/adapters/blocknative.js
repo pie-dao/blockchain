@@ -66,7 +66,12 @@ class BlocknativeAdapter {
     }
   }
 
-  initialize({ dappId, networkId, debug = false }) {
+  initialize({
+    dappId,
+    networkId,
+    ws,
+    debug = false,
+  }) {
     const prefix = logPrefix('initialize');
 
     validateIsString(dappId, {
@@ -78,10 +83,16 @@ class BlocknativeAdapter {
     this.dappId = dappId;
     this.debug = debug;
     this.networkId = networkId;
+    this.ws = ws;
   }
 
   start() {
-    const { dappId, networkId, transactionHandlers } = this;
+    const {
+      dappId,
+      networkId,
+      transactionHandlers,
+      ws,
+    } = this;
     const prefix = logPrefix('start');
 
     validateIsString(dappId, {
@@ -90,7 +101,13 @@ class BlocknativeAdapter {
     });
     validateIsSupportedNetworkId(networkId, { prefix });
 
-    internal.sdk = blocknativeSdk({ dappId, networkId, transactionHandlers });
+    const config = { dappId, networkId, transactionHandlers };
+
+    if (ws) {
+      config.ws = ws;
+    }
+
+    internal.sdk = blocknativeSdk(config);
     internal.connected = true;
   }
 
