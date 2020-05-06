@@ -10,6 +10,7 @@ import {
   validateIsString,
   validateIsTransactionHash,
 } from '@pie-dao/utils';
+import { erc20 as erc20ABI } from '@pie-dao/abis';
 import { ethers } from 'ethers';
 
 import blocknative from './adapters/blocknative';
@@ -144,7 +145,9 @@ class Database {
   async contract(address, provider) {
     let contract = await pouchdb.get(address);
 
-    if (!contract.symbol) {
+    if (contract.symbol) {
+      contract.contract = new ethers.Contract(address, erc20ABI, provider || this.provider);
+    } else {
       contract = await erc20(address, provider || this.provider);
     }
 
